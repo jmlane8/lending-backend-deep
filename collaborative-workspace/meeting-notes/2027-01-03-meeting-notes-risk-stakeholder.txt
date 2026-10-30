@@ -1,0 +1,46 @@
+Meeting notes - Harry (Risk Officer)
+3-Jan-2027
+
+---
+
+harry is risk officer - handles risk scoring side. not involved in biz rules, not tech.
+
+RISK SCORING
+- every loan app goes thru risk scoring process - managed by risk team
+- scoring model classifies apps into 4 categories:
+  VERY_LOW - best risk profile, strongest recommendation for approval
+  LOW
+  HIGH
+  VERY_HIGH - highest risk, strongest recommendation for rejection
+
+- important: scores are RECOMMENDATIONS only - not automatic approve/reject
+- final decision = regional risk committee, usually 2-3 members
+- committee review is a SEPARATE process - not part of submission or scoring
+
+asked if he can disclose scoring methodology - NO. proprietary. only risk team knows the calculation.
+can be updated anytime without notice.
+also wont say which specific data points affect the score - just tells us what data they need.
+
+DATA REQUIRED FOR RISK SCORING
+(mandatory unless noted otherwise)
+- customer gov ID number
+- spouse gov ID number (if applicable / married)
+- monthly household income - customer
+- monthly household income - spouse (if applicable)
+- number of dependents
+- customer phone number
+- spouse phone number - OPTIONAL
+- vehicle brand
+- vehicle model
+- vehicle year of manufacture
+- vehicle ownership holder (customer, spouse, or another party)
+  -> "another party" - so not always customer or spouse, worth noting
+- ownership/legal documents - existence AND validity, including whether any are expired
+- passport number - OPTIONAL
+
+asked about special cases or exceptions - he confirmed there might be some but formulas are undisclosed.
+no further details given (not allowed to disclose, cannot force).
+
+---
+next step: align with Ruth's data on overlapping fields (income, ID, phone, vehicle)
+check if "another party" ownership needs its own data fields -> probably yes, follow up needed
