@@ -1,0 +1,257 @@
+# Contract for this feature. During implementation, split it into
+# resources/openapi/openapi.yml and resources/openapi/schema/<domain>/ per the template.
+openapi: "3.0.3"
+info:
+  title: Loan Submission API
+  version: "1.0"
+  description: |
+    Submits loan applications for partner customers. Submission is asynchronous:
+    a `202` means the application was recorded, not that it is valid.
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+security:
+  - ApiKeyAuth: []
+paths:
+  /loan-applications/v1:
+    post:
+      operationId: loanApplications.submit
+      summary: Submit a loan application
+      description: |
+        Records the application and acknowledges it within 2 seconds. Customer data
+        is validated afterwards. Mandatory fields are described in the schema but not
+        marked `required`, because missing fields are reported after acknowledgment,
+        through the rejection webhook and the validation result lookup.
+      tags: [Loan Applications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitRequest"
+      responses:
+        "202":
+          description: Application recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmitResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /loan-applications/v1/{application-reference}/validation-result:
+    get:
+      operationId: loanApplications.validationResult
+      summary: Get an application's validation result
+      description: |
+        Returns the validation result only. Loan decisions are not reported here.
+        An application belonging to another partner returns `404`.
+      tags: [Loan Applications]
+      parameters:
+        - name: application-reference
+          in: path
+          required: true
+          schema:
+            type: string
+          example: LA-019a3b1c-7d2e-7f10-9c44-2b6e1f0a8d11
+      responses:
+        "200":
+          description: Current validation result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationResultResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /master-data/v1/enumerations:
+    get:
+      operationId: masterData.enumerations
+      summary: List accepted customer values
+      tags: [Master Data]
+      responses:
+        "200":
+          description: Accepted values by category.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnumerationsResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: api-key
+  responses:
+    Error:
+      description: Request failed. No application was recorded.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    SubmitRequest:
+      type: object
+      properties:
+        customer:
+          $ref: "#/components/schemas/Customer"
+        collateral:
+          type: object
+          description: Defined by US-004. Stored, not validated by this feature.
+        loan:
+          type: object
+          description: Defined by US-005. Stored, not validated by this feature.
+    Customer:
+      type: object
+      description: All fields are mandatory except `email`.
+      properties:
+        government-id-photo:
+          type: string
+          format: byte
+          description: Base64 JPEG or PNG, at most 5 MiB decoded and 50 megapixels.
+        government-id-expiry-date:
+          type: string
+          format: date
+        national-id-number:
+          type: string
+          description: Letters and digits only.
+          example: "3201012345678901"
+        full-legal-name:
+          type: string
+        selfie-photo:
+          type: string
+          format: byte
+          description: Base64 JPEG or PNG, at most 5 MiB decoded and 50 megapixels.
+        phone-number:
+          type: string
+          description: Optional leading +, then 8 to 15 digits.
+          example: "+15551234567"
+        email:
+          type: string
+          description: Optional.
+        gender:
+          type: string
+          description: A `GENDER` value from `/master-data/v1/enumerations`.
+          example: FEMALE
+        date-of-birth:
+          type: string
+          format: date
+        place-of-birth:
+          type: string
+        marital-status:
+          type: string
+          enum: [SINGLE, MARRIED, DIVORCED, WIDOWED]
+        occupation:
+          type: string
+          enum: [EMPLOYEE, ENTREPRENEUR, CIVIL_SERVANT]
+        work-duration-years:
+          type: integer
+          minimum: 0
+        monthly-income:
+          type: number
+          description: Greater than 0, up to 2 decimal places.
+        number-of-dependents:
+          type: integer
+          minimum: 0
+        domicile-street:
+          type: string
+        domicile-district:
+          type: string
+        domicile-city:
+          type: string
+        domicile-province:
+          type: string
+    SubmitResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            application-reference:
+              type: string
+              example: LA-019a3b1c-7d2e-7f10-9c44-2b6e1f0a8d11
+            submitted-at:
+              type: string
+              format: date-time
+    RejectionReason:
+      type: object
+      description: Never contains submitted values.
+      properties:
+        field:
+          type: string
+          example: customer.phone-number
+        code:
+          type: string
+          enum: [MISSING, INVALID, CUSTOMER_UNDER_AGE, GOVERNMENT_ID_EXPIRED]
+        message:
+          type: string
+          example: phone-number must be an optional + followed by 8 to 15 digits
+    ValidationResultResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            application-reference:
+              type: string
+            status:
+              type: string
+              enum: [PENDING, PASSED, REJECTED]
+            submitted-at:
+              type: string
+              format: date-time
+            validated-at:
+              type: string
+              format: date-time
+              nullable: true
+            reasons:
+              type: array
+              description: Present only when `status` is `REJECTED`.
+              items:
+                $ref: "#/components/schemas/RejectionReason"
+    EnumerationsResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            gender:
+              type: array
+              items:
+                type: string
+              example: [MALE, FEMALE]
+            marital-status:
+              type: array
+              items:
+                type: string
+            occupation:
+              type: array
+              items:
+                type: string
+    ErrorResponse:
+      type: object
+      properties:
+        error-code:
+          type: string
+          example: UNAUTHORIZED
+        error-message:
+          type: string
+          example: "unauthorized: invalid or missing api-key"
