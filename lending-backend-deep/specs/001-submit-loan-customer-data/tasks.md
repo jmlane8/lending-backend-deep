@@ -47,13 +47,13 @@ The plan and TD left these open. They're set here so tasks can run, and T045 cop
 
 **Purpose**: Create the Go service from the template, without the calculator sample
 
-- [ ] T001 Create `go.mod` with module `lending-backend-deep`, `go 1.26`, and the template's exact requirements, then run `go mod tidy` and commit `go.sum`. Model: `go.mod`
-- [ ] T002 [P] Create `Makefile` with the template's targets unchanged, including `run` (there is no `serve` target). Model: `Makefile`
-- [ ] T003 [P] Create `.env.example` and `.gitignore`. Set `APP_NAME=lending-backend-deep`, `POSTGRES_DATABASE=lending`, add `sandbox` to the `APP_ENV` comment, remove `API_KEY` and `POSTGRES_CONN_MAX_IDLE`, and add `BUSINESS_TIMEZONE=UTC`, `VALIDATOR_POLL_INTERVAL_SECONDS=1`, `NOTIFIER_POLL_INTERVAL_SECONDS=5`. Model: `.env.example`, `.gitignore`
-- [ ] T004 [P] Create `internal/migrate/migrate.go`, `resources/pgsql/embed.go`, and `internal/store/pg/pool.go`, changing only imports and the package comment. Model: same paths
-- [ ] T005 [P] Create `internal/rest/response/envelope.go`, `internal/rest/middleware/logger.go`, `internal/rest/middleware/recover.go`, and `internal/rest/handler/healthcheck/healthcheck.go`, changing only imports. Model: same paths
-- [ ] T006 [P] Create `internal/openapi/ui.go` and `resources/gen/embed.go`. Model: same paths
-- [ ] T007 Create `internal/config/config.go`, `internal/config/http.go`, and `internal/config/pgsql.go`, removing `APIKey` and defaulting `APP_NAME` to `lending-backend-deep`. Model: same paths
+- [X] T001 Create `go.mod` with module `lending-backend-deep`, `go 1.26`, and the template's exact requirements, then run `go mod tidy` and commit `go.sum`. Model: `go.mod`
+- [X] T002 [P] Create `Makefile` with the template's targets unchanged, including `run` (there is no `serve` target). Model: `Makefile`
+- [X] T003 [P] Create `.env.example` and `.gitignore`. Set `APP_NAME=lending-backend-deep`, `POSTGRES_DATABASE=lending`, add `sandbox` to the `APP_ENV` comment, remove `API_KEY` and `POSTGRES_CONN_MAX_IDLE`, and add `BUSINESS_TIMEZONE=UTC`, `VALIDATOR_POLL_INTERVAL_SECONDS=1`, `NOTIFIER_POLL_INTERVAL_SECONDS=5`. Model: `.env.example`, `.gitignore`
+- [X] T004 [P] Create `internal/migrate/migrate.go`, `resources/pgsql/embed.go`, and `internal/store/pg/pool.go`, changing only imports and the package comment. Model: same paths
+- [X] T005 [P] Create `internal/rest/response/envelope.go`, `internal/rest/middleware/logger.go`, `internal/rest/middleware/recover.go`, and `internal/rest/handler/healthcheck/healthcheck.go`, changing only imports. Model: same paths
+- [X] T006 [P] Create `internal/openapi/ui.go` and `resources/gen/embed.go`. Model: same paths
+- [X] T007 Create `internal/config/config.go`, `internal/config/http.go`, and `internal/config/pgsql.go`, removing `APIKey` and defaulting `APP_NAME` to `lending-backend-deep`. Model: same paths
 
 **Checkpoint**: The module has its shared packages, ready for the schema and routing
 
@@ -65,18 +65,18 @@ The plan and TD left these open. They're set here so tasks can run, and T045 cop
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Create `resources/pgsql/migrations/001_create_loan_submission.up.sql` with the TD DDL for all 8 tables in dependency order: `partner`, `partner_credential` (with the `issued_at` trigger), `stored_photo`, `customer`, `loan_application`, `application_payload`, `rejection_notification`, `master_data_value`, including its seed rows. Model: `resources/pgsql/migrations/001_create_calculator_transactions.up.sql`
-- [ ] T009 Create `resources/pgsql/migrations/001_create_loan_submission.down.sql`, dropping everything from T008 in reverse order, including the trigger and function. Model: `resources/pgsql/migrations/001_create_calculator_transactions.down.sql`
-- [ ] T010 Create `internal/config/worker.go` with `EnvWorker`: required `BusinessTimezone` (`env:"BUSINESS_TIMEZONE,required"`, no default), `ValidatorPollIntervalSeconds` default `1`, `NotifierPollIntervalSeconds` default `5`, using integer seconds with duration helper methods. Embed it in `Env` in `internal/config/config.go`. Model: `internal/config/http.go`
-- [ ] T011 [P] Create `internal/store/pg/partner.go` with `PartnerStore.FindByKeyHash(ctx, hash []byte)`, returning partner ID, agreement status, or not found, using the TD Entry Point 1 SQL. Treat `pgx.ErrNoRows` as not found. Model: `internal/store/pg/calculator_tx.go`
-- [ ] T012 Create `internal/rest/middleware/partnerauth.go` with `PartnerAuth`. Read header `api-key`, hash it with SHA-256, call `FindByKeyHash`, return `401 UNAUTHORIZED` for a missing or unknown key and `403 PARTNER_AGREEMENT_INACTIVE` when status isn't `ACTIVE`, and put the partner ID in the request context with an accessor function. Model: `internal/rest/middleware/apikey.go`
-- [ ] T013 Create `internal/rest/server/server.go` with the template's router, middlewares, healthcheck, OpenAPI routes and graceful shutdown, plus an empty `PartnerAuth`-protected route group. Add a cancelable context for workers, stopped after `srv.Shutdown`. Model: `internal/rest/server/server.go`
-- [ ] T014 Create `cmd/http/main.go`, adding a blank import of `time/tzdata` and exiting at startup if `BUSINESS_TIMEZONE` fails `time.LoadLocation`. Model: `cmd/http/main.go`
-- [ ] T015 [P] Create `resources/openapi/openapi.yml`, `resources/openapi/schema/common/error.yaml`, and `resources/openapi/schema/healthcheck/healthcheck.yaml`, with title `Loan Submission API`, the `ApiKeyAuth` scheme from `contracts/loan-applications.openapi.yaml`, and the healthcheck path. Model: same paths
-- [ ] T016 [P] Create `resources/pgsql/seed/sandbox_partner.sql`, with an `ACTIVE` partner keyed by the SHA-256 of `sandbox-partner-key`, a second `ACTIVE` partner keyed by `sandbox-partner-2-key` for lookup isolation, and an `INACTIVE` partner keyed by `inactive-partner-key`. Set `issued_at` after `agreement_signed_date`. No template model
-- [ ] T017 Create `internal/validation/customer.go` with exported types only: `Reason{Field, Code, Message}`, the reason codes `MISSING`, `INVALID`, `CUSTOMER_UNDER_AGE`, `GOVERNMENT_ID_EXPIRED`, and a `Customer` struct holding parsed fields and decoded photos. No template model
-- [ ] T018 [P] Create `tests/integration/helper_test.go`, which skips tests when `TEST_DATABASE_URL` is unset, applies migrations, loads the seed, cleans tables between tests, and builds a valid submission body with tiny JPEG photos. No template model
-- [ ] T019 Run `make openapi`, then confirm `go build ./...` passes and the service starts with migrations applied, generating `resources/gen/openapi/openapi.json`
+- [X] T008 Create `resources/pgsql/migrations/001_create_loan_submission.up.sql` with the TD DDL for all 8 tables in dependency order: `partner`, `partner_credential` (with the `issued_at` trigger), `stored_photo`, `customer`, `loan_application`, `application_payload`, `rejection_notification`, `master_data_value`, including its seed rows. Model: `resources/pgsql/migrations/001_create_calculator_transactions.up.sql`
+- [X] T009 Create `resources/pgsql/migrations/001_create_loan_submission.down.sql`, dropping everything from T008 in reverse order, including the trigger and function. Model: `resources/pgsql/migrations/001_create_calculator_transactions.down.sql`
+- [X] T010 Create `internal/config/worker.go` with `EnvWorker`: required `BusinessTimezone` (`env:"BUSINESS_TIMEZONE,required"`, no default), `ValidatorPollIntervalSeconds` default `1`, `NotifierPollIntervalSeconds` default `5`, using integer seconds with duration helper methods. Embed it in `Env` in `internal/config/config.go`. Model: `internal/config/http.go`
+- [X] T011 [P] Create `internal/store/pg/partner.go` with `PartnerStore.FindByKeyHash(ctx, hash []byte)`, returning partner ID, agreement status, or not found, using the TD Entry Point 1 SQL. Treat `pgx.ErrNoRows` as not found. Model: `internal/store/pg/calculator_tx.go`
+- [X] T012 Create `internal/rest/middleware/partnerauth.go` with `PartnerAuth`. Read header `api-key`, hash it with SHA-256, call `FindByKeyHash`, return `401 UNAUTHORIZED` for a missing or unknown key and `403 PARTNER_AGREEMENT_INACTIVE` when status isn't `ACTIVE`, and put the partner ID in the request context with an accessor function. Model: `internal/rest/middleware/apikey.go`
+- [X] T013 Create `internal/rest/server/server.go` with the template's router, middlewares, healthcheck, OpenAPI routes and graceful shutdown, plus an empty `PartnerAuth`-protected route group. Add a cancelable context for workers, stopped after `srv.Shutdown`. Model: `internal/rest/server/server.go`
+- [X] T014 Create `cmd/http/main.go`, adding a blank import of `time/tzdata` and exiting at startup if `BUSINESS_TIMEZONE` fails `time.LoadLocation`. Model: `cmd/http/main.go`
+- [X] T015 [P] Create `resources/openapi/openapi.yml`, `resources/openapi/schema/common/error.yaml`, and `resources/openapi/schema/healthcheck/healthcheck.yaml`, with title `Loan Submission API`, the `ApiKeyAuth` scheme from `contracts/loan-applications.openapi.yaml`, and the healthcheck path. Model: same paths
+- [X] T016 [P] Create `resources/pgsql/seed/sandbox_partner.sql`, with an `ACTIVE` partner keyed by the SHA-256 of `sandbox-partner-key`, a second `ACTIVE` partner keyed by `sandbox-partner-2-key` for lookup isolation, and an `INACTIVE` partner keyed by `inactive-partner-key`. Set `issued_at` after `agreement_signed_date`. No template model
+- [X] T017 Create `internal/validation/customer.go` with exported types only: `Reason{Field, Code, Message}`, the reason codes `MISSING`, `INVALID`, `CUSTOMER_UNDER_AGE`, `GOVERNMENT_ID_EXPIRED`, and a `Customer` struct holding parsed fields and decoded photos. No template model
+- [X] T018 [P] Create `tests/integration/helper_test.go`, which skips tests when `TEST_DATABASE_URL` is unset, applies migrations, loads the seed, cleans tables between tests, and builds a valid submission body with tiny JPEG photos. No template model
+- [X] T019 Run `make openapi`, then confirm `go build ./...` passes and the service starts with migrations applied, generating `resources/gen/openapi/openapi.json`
 
 **Checkpoint**: Foundation ready. The service starts, authenticates partners, and has its schema
 
@@ -92,19 +92,19 @@ The plan and TD left these open. They're set here so tasks can run, and T045 cop
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T020 [P] [US1] Create `tests/integration/submit_test.go` covering `202` with an `LA-` reference, a missing `email` passing, `401` for a wrong key, `403` for an inactive partner, `400` for a non-object body, `413` over 16 MiB, nothing recorded for those four errors, and `404` for another partner's reference (AC-002-001, AC-002-002, FR-014)
+- [X] T020 [P] [US1] Create `tests/integration/submit_test.go` covering `202` with an `LA-` reference, a missing `email` passing, `401` for a wrong key, `403` for an inactive partner, `400` for a non-object body, `413` over 16 MiB, nothing recorded for those four errors, and `404` for another partner's reference (AC-002-001, AC-002-002, FR-014)
 
 ### Implementation for User Story 1
 
-- [ ] T021 [P] [US1] Create `resources/openapi/schema/loanapplication/submit.yaml` and `resources/openapi/schema/loanapplication/validationresult.yaml` from `contracts/loan-applications.openapi.yaml`. Mark nothing as `required` in the request. Add both paths to `resources/openapi/openapi.yml`. Model: `resources/openapi/schema/calculator/add.yaml`
-- [ ] T022 [P] [US1] Create `internal/store/pg/loan_application.go` with `Create` (one transaction inserting `loan_application` and `application_payload`), `FindByReference` scoped to the partner, `ClaimNext`, `MarkPassed`, and `RecordFailure`, using the TD SQL. `application_status` is "`PENDING`, `PASSED`, or `REJECTED`". `RecordFailure` runs outside the rolled-back transaction with `next_validation_at = NOW() + LEAST(2^validation_attempts, 60)` minutes. Model: `internal/store/pg/calculator_tx.go`
-- [ ] T023 [P] [US1] Create `internal/store/pg/customer.go` with `InsertPhotos` and `UpsertCustomer`, using `ON CONFLICT (national_id_number) DO UPDATE`, inside the caller's transaction. Soft-delete the customer's previous `stored_photo` rows by setting `deleted`, `deleted_at`, and `deleted_by = 'system'`. `monthly_income` is `NUMERIC(20,2)`. Model: `internal/store/pg/calculator_tx.go`
-- [ ] T024 [US1] Add `Validate(body []byte, submissionDate time.Time, genders []string) (Customer, []Reason, error)` to `internal/validation/customer.go`, parsing the `customer` object with `json.Number` for numbers and decoding base64 photos into `Customer`. In this phase it returns no reasons. A parse failure returns an error, which the worker retries until US2 adds rules
-- [ ] T025 [US1] Create `internal/rest/handler/loanapplication/submit.go`. Limit the body to 16 MiB with `http.MaxBytesReader` and return `413 REQUEST_BODY_TOO_LARGE` on `*http.MaxBytesError`. Decode into a struct with `Customer`, `Collateral`, and `Loan` as `json.RawMessage`, and return `400 INVALID_REQUEST_BODY` if the body isn't a JSON object. Don't type individual fields (R-002). Generate the ID with `uuid.NewV7`, set the reference to `LA-<uuid>`, store the exact body, and return `202`. Storage failure returns `500 INTERNAL_SERVER_ERROR`. Model: `internal/rest/handler/calculator/add.go`
-- [ ] T026 [US1] Create `internal/rest/handler/loanapplication/validationresult.go` for `GET /loan-applications/v1/{application-reference}/validation-result`, using `chi.URLParam` and the context partner ID. Return `404 APPLICATION_NOT_FOUND` when absent or owned by another partner. Omit `reasons` unless `REJECTED`, and never report loan decisions. Model: `internal/rest/handler/calculator/add.go`
-- [ ] T027 [US1] Create `internal/worker/validator.go` with a polling loop that stops on context cancel. Each cycle runs one transaction: claim with `FOR UPDATE OF la SKIP LOCKED`, derive the submission date from `submitted_at` with `BUSINESS_TIMEZONE`, load active `GENDER` values, call `Validate`, then upsert the customer, set `PASSED`, and rewrite the payload to hold only `collateral` and `loan`. On error, roll back and call `RecordFailure`. Log the reference, outcome, and delay since `submitted_at` only. No template model
-- [ ] T028 [US1] Register `POST /loan-applications/v1` and the lookup route in the `PartnerAuth` group, and start the validator goroutine, in `internal/rest/server/server.go`
-- [ ] T029 [US1] Run `make openapi` to update `resources/gen/openapi/openapi.json`, then run the US1 tests
+- [X] T021 [P] [US1] Create `resources/openapi/schema/loanapplication/submit.yaml` and `resources/openapi/schema/loanapplication/validationresult.yaml` from `contracts/loan-applications.openapi.yaml`. Mark nothing as `required` in the request. Add both paths to `resources/openapi/openapi.yml`. Model: `resources/openapi/schema/calculator/add.yaml`
+- [X] T022 [P] [US1] Create `internal/store/pg/loan_application.go` with `Create` (one transaction inserting `loan_application` and `application_payload`), `FindByReference` scoped to the partner, `ClaimNext`, `MarkPassed`, and `RecordFailure`, using the TD SQL. `application_status` is "`PENDING`, `PASSED`, or `REJECTED`". `RecordFailure` runs outside the rolled-back transaction with `next_validation_at = NOW() + LEAST(2^validation_attempts, 60)` minutes. Model: `internal/store/pg/calculator_tx.go`
+- [X] T023 [P] [US1] Create `internal/store/pg/customer.go` with `InsertPhotos` and `UpsertCustomer`, using `ON CONFLICT (national_id_number) DO UPDATE`, inside the caller's transaction. Soft-delete the customer's previous `stored_photo` rows by setting `deleted`, `deleted_at`, and `deleted_by = 'system'`. `monthly_income` is `NUMERIC(20,2)`. Model: `internal/store/pg/calculator_tx.go`
+- [X] T024 [US1] Add `Validate(body []byte, submissionDate time.Time, genders []string) (Customer, []Reason, error)` to `internal/validation/customer.go`, parsing the `customer` object with `json.Number` for numbers and decoding base64 photos into `Customer`. In this phase it returns no reasons. A parse failure returns an error, which the worker retries until US2 adds rules
+- [X] T025 [US1] Create `internal/rest/handler/loanapplication/submit.go`. Limit the body to 16 MiB with `http.MaxBytesReader` and return `413 REQUEST_BODY_TOO_LARGE` on `*http.MaxBytesError`. Decode into a struct with `Customer`, `Collateral`, and `Loan` as `json.RawMessage`, and return `400 INVALID_REQUEST_BODY` if the body isn't a JSON object. Don't type individual fields (R-002). Generate the ID with `uuid.NewV7`, set the reference to `LA-<uuid>`, store the exact body, and return `202`. Storage failure returns `500 INTERNAL_SERVER_ERROR`. Model: `internal/rest/handler/calculator/add.go`
+- [X] T026 [US1] Create `internal/rest/handler/loanapplication/validationresult.go` for `GET /loan-applications/v1/{application-reference}/validation-result`, using `chi.URLParam` and the context partner ID. Return `404 APPLICATION_NOT_FOUND` when absent or owned by another partner. Omit `reasons` unless `REJECTED`, and never report loan decisions. Model: `internal/rest/handler/calculator/add.go`
+- [X] T027 [US1] Create `internal/worker/validator.go` with a polling loop that stops on context cancel. Each cycle runs one transaction: claim with `FOR UPDATE OF la SKIP LOCKED`, derive the submission date from `submitted_at` with `BUSINESS_TIMEZONE`, load active `GENDER` values, call `Validate`, then upsert the customer, set `PASSED`, and rewrite the payload to hold only `collateral` and `loan`. On error, roll back and call `RecordFailure`. Log the reference, outcome, and delay since `submitted_at` only. No template model
+- [X] T028 [US1] Register `POST /loan-applications/v1` and the lookup route in the `PartnerAuth` group, and start the validator goroutine, in `internal/rest/server/server.go`
+- [X] T029 [US1] Run `make openapi` to update `resources/gen/openapi/openapi.json`, then run the US1 tests
 
 **Checkpoint**: User Story 1 works on its own. Don't release it to partners yet, because invalid data isn't rejected until US2
 
@@ -120,19 +120,19 @@ The plan and TD left these open. They're set here so tasks can run, and T045 cop
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T030 [P] [US2] Create `internal/validation/customer_test.go` with table-driven tests: each mandatory field absent, null, empty, and whitespace-only; several missing at once; wrong JSON types; both enums invalid; each FR-015 rule; a truncated image; a non-text `email` treated as absent; and NUL characters (AC-002-003 to AC-002-005, FR-015)
-- [ ] T031 [P] [US2] Create `tests/integration/rejection_test.go` covering `REJECTED` with reasons, no `application_payload` row, NULL `customer_id`, `rejection_stage = 'CUSTOMER_DATA'`, wrong-typed `monthly-income` giving `202` then `INVALID`, and an immediate corrected resubmission passing (FR-011, FR-012, FR-016)
-- [ ] T032 [P] [US2] Create `tests/integration/webhook_test.go` with `TestRejectionWebhook`, using `httptest`: a valid signature and headers, retry after a failure, `DELIVERED` on `2xx`, and `EXHAUSTED` after 7 attempts (FR-013)
+- [X] T030 [P] [US2] Create `internal/validation/customer_test.go` with table-driven tests: each mandatory field absent, null, empty, and whitespace-only; several missing at once; wrong JSON types; both enums invalid; each FR-015 rule; a truncated image; a non-text `email` treated as absent; and NUL characters (AC-002-003 to AC-002-005, FR-015)
+- [X] T031 [P] [US2] Create `tests/integration/rejection_test.go` covering `REJECTED` with reasons, no `application_payload` row, NULL `customer_id`, `rejection_stage = 'CUSTOMER_DATA'`, wrong-typed `monthly-income` giving `202` then `INVALID`, and an immediate corrected resubmission passing (FR-011, FR-012, FR-016)
+- [X] T032 [P] [US2] Create `tests/integration/webhook_test.go` with `TestRejectionWebhook`, using `httptest`: a valid signature and headers, retry after a failure, `DELIVERED` on `2xx`, and `EXHAUSTED` after 7 attempts (FR-013)
 
 ### Implementation for User Story 2
 
-- [ ] T033 [US2] Add the field rules to `Validate` in `internal/validation/customer.go`, running every rule so all problems appear in one rejection, with messages that never contain submitted values. Absent, null, or empty or whitespace-only text is `MISSING`. A wrong JSON type is `INVALID`. Apply these rules with code `INVALID`: `marital-status` one of `SINGLE`, `MARRIED`, `DIVORCED`, `WIDOWED` (case-sensitive); `occupation` one of `EMPLOYEE`, `ENTREPRENEUR`, `CIVIL_SERVANT` (case-sensitive); `national-id-number` "Letters and digits only"; `phone-number` "Optional `+`, then 8 to 15 digits"; `gender` "Active `GENDER` master data value"; `date-of-birth` "Real date in `YYYY-MM-DD`, not after the submission date"; `government-id-expiry-date` "Real date in `YYYY-MM-DD`"; `work-duration-years` and `number-of-dependents` "Whole number, 0 or more, at most 32,767"; `monthly-income` "Greater than 0, plain decimal, up to 18 whole digits and 2 decimals"; photos "Base64 JPEG or PNG that fully decodes, at most 5 MiB and 50 megapixels", using `image.DecodeConfig` for the pixel limit before a full decode; any text field "No NUL characters". A non-text `email` is treated as absent and never causes rejection
-- [ ] T034 [US2] Add `MarkRejected` to `internal/store/pg/loan_application.go`. In the caller's transaction, hard-delete the `application_payload` row and set `REJECTED`, `rejection_reasons`, `rejection_stage = 'CUSTOMER_DATA'`, `validated_at`, and `rejected_at`, leaving `customer_id` NULL (FR-011, FR-016). This is the only hard delete in the system
-- [ ] T035 [P] [US2] Create `internal/store/pg/rejection_notification.go` with `Enqueue` (the TD `INSERT ... SELECT` that adds no row when the partner has no `notification_url`), `ClaimNext` with `FOR UPDATE OF rn SKIP LOCKED`, `MarkDelivered`, `MarkExhausted`, and `ScheduleRetry`. `status` is "`PENDING`, `DELIVERED`, or `EXHAUSTED`". Model: `internal/store/pg/calculator_tx.go`
-- [ ] T036 [US2] Update `internal/worker/validator.go` so non-empty reasons call `MarkRejected` and `Enqueue` in the same transaction, logging a warning with the reference if no notification row is added
-- [ ] T037 [US2] Create `internal/worker/notifier.go` per `contracts/rejection-webhook.md`: event type `loan-application.rejected`; headers `x-event-id`, `x-timestamp`, `x-signature`; HMAC-SHA256 of `<x-timestamp>.<raw body>`; a 5-second timeout; retries after 1 minute, 5 minutes, 30 minutes, 2 hours, 6 hours and 12 hours; `EXHAUSTED` after 7 attempts. No template model
-- [ ] T038 [US2] Create `internal/store/pg/master_data.go` with `ListActive` and `ActiveGenders`, `internal/rest/handler/masterdata/enumerations.go`, and `resources/openapi/schema/masterdata/enumerations.yaml` for `GET /master-data/v1/enumerations`, and add the path to `resources/openapi/openapi.yml`. Replace the validator's gender lookup with `ActiveGenders`. Model: `internal/store/pg/calculator_tx.go`, `internal/rest/handler/calculator/add.go`, `resources/openapi/schema/calculator/add.yaml`
-- [ ] T039 [US2] Register the enumerations route in the `PartnerAuth` group and start the notifier goroutine in `internal/rest/server/server.go`, then run `make openapi` to update `resources/gen/openapi/openapi.json`
+- [X] T033 [US2] Add the field rules to `Validate` in `internal/validation/customer.go`, running every rule so all problems appear in one rejection, with messages that never contain submitted values. Absent, null, or empty or whitespace-only text is `MISSING`. A wrong JSON type is `INVALID`. Apply these rules with code `INVALID`: `marital-status` one of `SINGLE`, `MARRIED`, `DIVORCED`, `WIDOWED` (case-sensitive); `occupation` one of `EMPLOYEE`, `ENTREPRENEUR`, `CIVIL_SERVANT` (case-sensitive); `national-id-number` "Letters and digits only"; `phone-number` "Optional `+`, then 8 to 15 digits"; `gender` "Active `GENDER` master data value"; `date-of-birth` "Real date in `YYYY-MM-DD`, not after the submission date"; `government-id-expiry-date` "Real date in `YYYY-MM-DD`"; `work-duration-years` and `number-of-dependents` "Whole number, 0 or more, at most 32,767"; `monthly-income` "Greater than 0, plain decimal, up to 18 whole digits and 2 decimals"; photos "Base64 JPEG or PNG that fully decodes, at most 5 MiB and 50 megapixels", using `image.DecodeConfig` for the pixel limit before a full decode; any text field "No NUL characters". A non-text `email` is treated as absent and never causes rejection
+- [X] T034 [US2] Add `MarkRejected` to `internal/store/pg/loan_application.go`. In the caller's transaction, hard-delete the `application_payload` row and set `REJECTED`, `rejection_reasons`, `rejection_stage = 'CUSTOMER_DATA'`, `validated_at`, and `rejected_at`, leaving `customer_id` NULL (FR-011, FR-016). This is the only hard delete in the system
+- [X] T035 [P] [US2] Create `internal/store/pg/rejection_notification.go` with `Enqueue` (the TD `INSERT ... SELECT` that adds no row when the partner has no `notification_url`), `ClaimNext` with `FOR UPDATE OF rn SKIP LOCKED`, `MarkDelivered`, `MarkExhausted`, and `ScheduleRetry`. `status` is "`PENDING`, `DELIVERED`, or `EXHAUSTED`". Model: `internal/store/pg/calculator_tx.go`
+- [X] T036 [US2] Update `internal/worker/validator.go` so non-empty reasons call `MarkRejected` and `Enqueue` in the same transaction, logging a warning with the reference if no notification row is added
+- [X] T037 [US2] Create `internal/worker/notifier.go` per `contracts/rejection-webhook.md`: event type `loan-application.rejected`; headers `x-event-id`, `x-timestamp`, `x-signature`; HMAC-SHA256 of `<x-timestamp>.<raw body>`; a 5-second timeout; retries after 1 minute, 5 minutes, 30 minutes, 2 hours, 6 hours and 12 hours; `EXHAUSTED` after 7 attempts. No template model
+- [X] T038 [US2] Create `internal/store/pg/master_data.go` with `ListActive` and `ActiveGenders`, `internal/rest/handler/masterdata/enumerations.go`, and `resources/openapi/schema/masterdata/enumerations.yaml` for `GET /master-data/v1/enumerations`, and add the path to `resources/openapi/openapi.yml`. Replace the validator's gender lookup with `ActiveGenders`. Model: `internal/store/pg/calculator_tx.go`, `internal/rest/handler/calculator/add.go`, `resources/openapi/schema/calculator/add.yaml`
+- [X] T039 [US2] Register the enumerations route in the `PartnerAuth` group and start the notifier goroutine in `internal/rest/server/server.go`, then run `make openapi` to update `resources/gen/openapi/openapi.json`
 
 **Checkpoint**: User Stories 1 and 2 work together, and invalid data no longer proceeds
 
@@ -148,11 +148,11 @@ The plan and TD left these open. They're set here so tasks can run, and T045 cop
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T040 [US3] Add table-driven tests to `internal/validation/customer_test.go`: under 18 by one day, 18 today, a 29 February birth in a non-leap year, ID expired yesterday, and ID expiring today (AC-002-006 to AC-002-008)
+- [X] T040 [US3] Add table-driven tests to `internal/validation/customer_test.go`: under 18 by one day, 18 today, a 29 February birth in a non-leap year, ID expired yesterday, and ID expiring today (AC-002-006 to AC-002-008)
 
 ### Implementation for User Story 3
 
-- [ ] T041 [US3] Add eligibility rules to `Validate` in `internal/validation/customer.go`. `date-of-birth`: "Customer is 18 on the submission date. 29 February births reach 18 on 1 March in non-leap years", with code `CUSTOMER_UNDER_AGE`. `government-id-expiry-date`: "Not before the submission date", with code `GOVERNMENT_ID_EXPIRED`. Skip each rule if its date already failed as `MISSING` or `INVALID`
+- [X] T041 [US3] Add eligibility rules to `Validate` in `internal/validation/customer.go`. `date-of-birth`: "Customer is 18 on the submission date. 29 February births reach 18 on 1 March in non-leap years", with code `CUSTOMER_UNDER_AGE`. `government-id-expiry-date`: "Not before the submission date", with code `GOVERNMENT_ID_EXPIRED`. Skip each rule if its date already failed as `MISSING` or `INVALID`
 
 **Checkpoint**: All user stories work
 
@@ -162,11 +162,11 @@ The plan and TD left these open. They're set here so tasks can run, and T045 cop
 
 **Purpose**: Documentation, verification, and keeping the design documents in step
 
-- [ ] T042 [P] Create `README.md` for this service, covering setup with `make run`, endpoints, the asynchronous flow, webhook verification, sandbox use, and every environment variable. Model: `README.md`
-- [ ] T043 Check that no log line in `internal/worker/` or `internal/rest/` can contain a submitted value, and that request bodies are never logged (FR-011)
-- [ ] T044 Measure SC-001 and SC-006 against a running service with maximum-size bodies, using `submitted_at`, `acknowledged_at`, and `validated_at`, and record the results in `specs/001-submit-loan-customer-data/quickstart.md`
-- [ ] T045 [P] Update `specs/001-submit-loan-customer-data/my-technical-design-from-plan.md` to replace every `TODO` with the decisions at the top of this file, and update the first paragraph of `specs/001-submit-loan-customer-data/data-model.md` to say every table has the audit and soft-delete columns
-- [ ] T046 Run all 20 scenarios in `specs/001-submit-loan-customer-data/quickstart.md` and `make test` with `TEST_DATABASE_URL` set, then fix any failures
+- [X] T042 [P] Create `README.md` for this service, covering setup with `make run`, endpoints, the asynchronous flow, webhook verification, sandbox use, and every environment variable. Model: `README.md`
+- [X] T043 Check that no log line in `internal/worker/` or `internal/rest/` can contain a submitted value, and that request bodies are never logged (FR-011)
+- [X] T044 Measure SC-001 and SC-006 against a running service with maximum-size bodies, using `submitted_at`, `acknowledged_at`, and `validated_at`, and record the results in `specs/001-submit-loan-customer-data/quickstart.md`
+- [X] T045 [P] Update `specs/001-submit-loan-customer-data/my-technical-design-from-plan.md` to replace every `TODO` with the decisions at the top of this file, and update the first paragraph of `specs/001-submit-loan-customer-data/data-model.md` to say every table has the audit and soft-delete columns
+- [X] T046 Run all 20 scenarios in `specs/001-submit-loan-customer-data/quickstart.md` and `make test` with `TEST_DATABASE_URL` set, then fix any failures
 
 ---
 
@@ -238,3 +238,23 @@ Task: "Create internal/store/pg/customer.go"
 - Commit after each task or logical group
 - Stop at any checkpoint to validate the story independently
 - The questions for the business stakeholder remain open: country and currency, the narrowed lookup, gender values, and the webhook
+
+## Implementation Notes
+
+These differ from the task text above, or add to it.
+
+| Task | What happened | Why |
+|---|---|---|
+| T001 | `go mod tidy` ran at T019, not T001 | Tidying before any code exists would remove every requirement |
+| T005 | Also created `internal/rest/constant/constant.go` | `healthcheck.go` and `ui.go` import it, and no task listed it |
+| T009 | The down migration is empty, not a drop of every table | The template's model says "we should not drop the tables", and it would destroy loan data. The migration runner only applies `up` |
+| T010 | The tag is `env:"BUSINESS_TIMEZONE,required,notEmpty"` | `required` alone accepts a set-but-empty value, and `time.LoadLocation("")` then returns UTC silently |
+| T012 | `PartnerAuth` also logs each authenticated request with `partner_id` | Principle IV requires attribution, and `logger.go` wraps the middleware, so it can't see the context value |
+| T013 | Added `NewRouter` to `server.go`, called by `Serve` | Integration tests need the router without the blocking server |
+| T024, T033, T041 | Written together in `internal/validation/rules.go` | The tests already covered the final rules. Unit tests failed to compile first, so they were never seen failing on a specific rule |
+| T033 | `national-id-number` is limited to 255 characters | A longer value exceeds the unique index limit, so the row would retry forever while holding personal data |
+| T037 | Outside `APP_ENV=local`, a non-`https` address counts as a failed attempt. Redirects also count as failures | The data model requires HTTPS, and a `3xx` is not a `2xx` |
+| T038 | The store was created in US1 | T027 needs it. The original order had no store to read gender values from |
+| T015, T021 | The webhook contract is also in the OpenAPI description | Partner documentation is generated from the spec |
+| T033 | Removed the base64 length pre-check from photos | Context7 confirmed `DecodeString` ignores line breaks, so the pre-check wrongly rejected a valid line-wrapped photo near 5 MiB. Found after T046, so only the unit tests were re-run |
+| T046 | Ran `go test ./...` without `-race`, not `make test` | `make` and a C compiler aren't installed on this machine |

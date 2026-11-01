@@ -1,0 +1,12 @@
+ErrorResponse:
+  type: object
+  description: Standard response envelope returned by all endpoints on failure.
+  properties:
+    error-code:
+      type: string
+      description: Machine-readable error code.
+      example: UNAUTHORIZED
+    error-message:
+      type: string
+      description: Human-readable description of the error.
+      example: "unauthorized: invalid or missing api-key"

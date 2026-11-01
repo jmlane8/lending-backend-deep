@@ -1,0 +1,24 @@
+EnumerationsData:
+  type: object
+  description: Payload returned inside the enumerations response envelope.
+  properties:
+    gender:
+      type: array
+      items:
+        type: string
+      example: [FEMALE, MALE]
+    marital-status:
+      type: array
+      items:
+        type: string
+    occupation:
+      type: array
+      items:
+        type: string
+
+EnumerationsResponse:
+  type: object
+  description: Success response envelope for the accepted customer values.
+  properties:
+    data:
+      $ref: "#/EnumerationsData"

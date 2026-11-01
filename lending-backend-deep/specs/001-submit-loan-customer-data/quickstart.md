@@ -25,7 +25,7 @@ Set these in `.env`:
 
 Also export `DATABASE_URL` in your shell, pointing to the same database as `POSTGRES_*`. Only `psql` uses it.
 
-The seed creates an active partner with the API key `sandbox-partner-key` and an inactive partner with `inactive-partner-key`. Never run it in production.
+The seed creates two active partners with the API keys `sandbox-partner-key` and `sandbox-partner-2-key`, and an inactive partner with `inactive-partner-key`. Never run it in production.
 
 ## Automated checks
 
@@ -60,3 +60,16 @@ Send each request to `http://localhost:8080` with the `api-key` header. Use tiny
 | 18 | Crash recovery | Stop the service while rows are `PENDING`, then restart | Rows finish normally | R-001 |
 | 19 | Accepted values listed | `GET /master-data/v1/enumerations` | Includes `MALE` and `FEMALE` | Principle V |
 | 20 | No personal data in logs | Search logs after scenarios 1 to 9 | No submitted values appear | FR-011 |
+
+## Results
+
+Measured on 2026-11-01 against the built binary and PostgreSQL 16 in Docker on one Windows development machine. These figures show the design holds on one host, not production capacity.
+
+| Check | Load | Result |
+|---|---|---|
+| SC-001 | 20 sequential 16.00 MiB bodies, each with two 4.76 MiB PNG photos | Slowest client round trip 451 ms, against the 2-second target |
+| SC-006 | The same 20 applications | All `PASSED`. Slowest `acknowledged_at` to `validated_at` was 1.14 seconds, against the 1-minute target |
+| Scenarios 1 to 12, 14 to 20 | Live service over HTTP | All passed. In scenario 18, the process was killed with 2 rows `PENDING`, and all finished after restart |
+| Scenario 13 | `go test ./tests/integration -run TestRejectionWebhook` | Passed |
+
+`submitted_at` is set after the body is read, so the database gap between `submitted_at` and `acknowledged_at` (1 ms) excludes upload time. The client round trip above includes it, over localhost.

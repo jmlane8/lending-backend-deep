@@ -4,7 +4,7 @@ Based on `collaborative-workspace/data-definitions/DDE-001-loan-submission-data-
 
 ## Tables
 
-All timestamps are `TIMESTAMPTZ`. Audit columns follow the template (`created_at`, `updated_at`); the template's `deleted` columns are not used on these tables.
+All timestamps are `TIMESTAMPTZ`. Every table has the template's audit and soft-delete columns (`created_at`, `updated_at`, `deleted`, `deleted_at`, `created_by`, `updated_by`, `deleted_by`). Rejected `application_payload` rows are the one exception to soft deletion: they are hard-deleted (FR-011).
 
 ### partner (minimum for this feature; US-001 owns the rest)
 
@@ -134,7 +134,7 @@ Rules run in `internal/validation`, with no I/O except the master data values pa
 | `date-of-birth` | Customer is 18 on the submission date. 29 February births reach 18 on 1 March in non-leap years | `CUSTOMER_UNDER_AGE` | FR-007 |
 | `government-id-expiry-date` | Real date in `YYYY-MM-DD` | `INVALID` | FR-015 |
 | `government-id-expiry-date` | Not before the submission date | `GOVERNMENT_ID_EXPIRED` | FR-008 |
-| `national-id-number` | Letters and digits only | `INVALID` | FR-015 |
+| `national-id-number` | Letters and digits only, at most 255 characters, the size the unique index can hold | `INVALID` | FR-015 |
 | `phone-number` | Optional `+`, then 8 to 15 digits | `INVALID` | FR-015 |
 | `gender` | Active `GENDER` master data value | `INVALID` | FR-015 |
 | `work-duration-years`, `number-of-dependents` | Whole number, 0 or more, at most 32,767 | `INVALID` | FR-015 |
@@ -144,7 +144,7 @@ Rules run in `internal/validation`, with no I/O except the master data values pa
 
 `email` is never a rejection reason (FR-003). A non-text `email` is treated as absent.
 
-The numeric limits and the NUL rule go slightly beyond FR-015. They stop a value that can't be stored from making a row fail forever.
+The numeric limits, the national ID length, and the NUL rule go slightly beyond FR-015. They stop a value that can't be stored from making a row fail forever.
 
 ## Differences from DDE-001
 

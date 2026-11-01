@@ -63,7 +63,7 @@ Mandatory fields are not enforced by this endpoint. A missing or invalid field s
   "customer": {
     "government-id-photo": string,        // [mandatory] Base64 JPEG or PNG, at most 5 MiB decoded and 50 megapixels
     "government-id-expiry-date": string,  // [mandatory] Real date, YYYY-MM-DD, not before the submission date
-    "national-id-number": string,         // [mandatory] Letters and digits only
+    "national-id-number": string,         // [mandatory] Letters and digits only, at most 255 characters
     "full-legal-name": string,            // [mandatory]
     "selfie-photo": string,               // [mandatory] Base64 JPEG or PNG, at most 5 MiB decoded and 50 megapixels
     "phone-number": string,               // [mandatory] Use regex ^\+?\d{8,15}$
@@ -160,8 +160,8 @@ Mandatory fields are not enforced by this endpoint. A missing or invalid field s
 |-------------|------------|----------|-----------|
 | 400 | INVALID_REQUEST_BODY | Body is not a JSON object. No application recorded | NO |
 | 401 | UNAUTHORIZED | `api-key` is missing or unknown, or the credential is not valid | NO |
-| 403 | TODO: error code | Valid key, but the partner's agreement is not active | NO |
-| 413 | TODO: error code | Body is over 16 MiB. No application recorded | NO |
+| 403 | PARTNER_AGREEMENT_INACTIVE | Valid key, but the partner's agreement is not active | NO |
+| 413 | REQUEST_BODY_TOO_LARGE | Body is over 16 MiB. No application recorded | NO |
 | 500 | INTERNAL_SERVER_ERROR | Storage or unexpected server error. No application recorded | YES |
 
 ### `/loan-applications/v1/{application-reference}/validation-result`
@@ -246,8 +246,8 @@ None
 | HTTP Status | Error Code | Scenario | Retryable |
 |-------------|------------|----------|-----------|
 | 401 | UNAUTHORIZED | `api-key` is missing or unknown, or the credential is not valid | NO |
-| 403 | TODO: error code | Valid key, but the partner's agreement is not active | NO |
-| 404 | TODO: error code | Reference is unknown or belongs to another partner | NO |
+| 403 | PARTNER_AGREEMENT_INACTIVE | Valid key, but the partner's agreement is not active | NO |
+| 404 | APPLICATION_NOT_FOUND | Reference is unknown or belongs to another partner | NO |
 | 500 | INTERNAL_SERVER_ERROR | Storage or unexpected server error | YES |
 
 ### `/master-data/v1/enumerations`
@@ -314,7 +314,7 @@ None
 | HTTP Status | Error Code | Scenario | Retryable |
 |-------------|------------|----------|-----------|
 | 401 | UNAUTHORIZED | `api-key` is missing or unknown, or the credential is not valid | NO |
-| 403 | TODO: error code | Valid key, but the partner's agreement is not active | NO |
+| 403 | PARTNER_AGREEMENT_INACTIVE | Valid key, but the partner's agreement is not active | NO |
 | 500 | INTERNAL_SERVER_ERROR | Storage or unexpected server error | YES |
 
 ---
@@ -324,7 +324,7 @@ None
 ### Customer Data Validator
 
 **Trigger**: Other (polling loop started by the service) <br>
-**Schedule**: Continuous polling for due `PENDING` applications. TODO: polling interval <br>
+**Schedule**: Continuous polling for due `PENDING` applications. `VALIDATOR_POLL_INTERVAL_SECONDS`, default `1` <br>
 **Timezone**: Schedule is interval based, so None. The submission date is derived using the required `BUSINESS_TIMEZONE` setting <br>
 **Concurrency Control**: `SELECT ... FOR UPDATE SKIP LOCKED`, one application per transaction. Several replicas can run safely <br>
 **Idempotency**: The row stays locked for the whole transaction. A crash rolls everything back and the row is picked up again, so a result is never half-applied <br>
@@ -358,7 +358,7 @@ None
 | `date-of-birth` | Customer is 18 on the submission date. 29 February births reach 18 on 1 March in non-leap years | `CUSTOMER_UNDER_AGE` | FR-007 |
 | `government-id-expiry-date` | Real date in `YYYY-MM-DD` | `INVALID` | FR-015 |
 | `government-id-expiry-date` | Not before the submission date | `GOVERNMENT_ID_EXPIRED` | FR-008 |
-| `national-id-number` | Letters and digits only | `INVALID` | FR-015 |
+| `national-id-number` | Letters and digits only, at most 255 characters | `INVALID` | FR-015 |
 | `phone-number` | Optional `+`, then 8 to 15 digits | `INVALID` | FR-015 |
 | `gender` | Active `GENDER` master data value | `INVALID` | FR-015 |
 | `work-duration-years`, `number-of-dependents` | Whole number, 0 or more, at most 32,767 | `INVALID` | FR-015 |
@@ -381,14 +381,14 @@ A field with the wrong JSON type is `INVALID`. A non-text `email` is treated as 
 
 | Failure Scenario | Handling | Retryable | Alerting |
 |-------------------|----------|-----------|----------|
-| Internal failure while processing an application | Roll back, increment `validation_attempts`, and set a later `next_validation_at`. TODO: backoff schedule | YES | Error log with reference only. TODO: alert target |
+| Internal failure while processing an application | Roll back, increment `validation_attempts`, and set `next_validation_at = NOW() + LEAST(2^validation_attempts, 60)` minutes, retrying indefinitely | YES | Error-level log with reference only, because no alerting system exists |
 | Service crash mid-transaction | Transaction rolls back and the row is claimed again | YES | None |
 | Partner has no `notification_url` | Rejection still completes; no notification row is created | NO | Warning log |
 
 ### Rejection Notifier
 
 **Trigger**: Other (polling loop started by the service) <br>
-**Schedule**: Continuous polling for due `PENDING` notifications. TODO: polling interval <br>
+**Schedule**: Continuous polling for due `PENDING` notifications. `NOTIFIER_POLL_INTERVAL_SECONDS`, default `5` <br>
 **Timezone**: None <br>
 **Concurrency Control**: `SELECT ... FOR UPDATE SKIP LOCKED`, one notification per transaction <br>
 **Idempotency**: Delivery is at-least-once. Every attempt carries the same `event-id`, so partners can de-duplicate <br>
@@ -423,7 +423,7 @@ Delivery details are in [contracts/rejection-webhook.md](contracts/rejection-web
 | Failure Scenario | Handling | Retryable | Alerting |
 |-------------------|----------|-----------|----------|
 | Non-2xx response, timeout, or connection failure | Retry 1 minute, 5 minutes, 30 minutes, 2 hours, 6 hours and 12 hours after the previous attempt | YES | None |
-| 7 attempts have failed | Mark `EXHAUSTED`. The partner can still use the validation result lookup | NO | Log entry. TODO: alert target |
+| 7 attempts have failed | Mark `EXHAUSTED`. The partner can still use the validation result lookup | NO | Error-level log, because no alerting system exists |
 
 ---
 
@@ -1063,10 +1063,10 @@ ON internal failure:
     SET validation_attempts = validation_attempts + 1,
         next_validation_at = $later_time, updated_at = NOW()
     WHERE loan_application_id = $id;
-    -- TODO: backoff schedule for $later_time
+    -- $later_time = NOW() + LEAST(2^validation_attempts, 60) minutes
 
-TODO: an upsert replaces a customer's photo references, and the plan doesn't
-say what happens to the earlier stored_photo rows.
+An upsert replaces a customer's photo references. The earlier stored_photo rows
+are soft-deleted, and their content stays until retention rules are defined.
 ```
 
 ### Entry Point 5: Task Rejection Notifier

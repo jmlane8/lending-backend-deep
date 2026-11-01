@@ -1,0 +1,42 @@
+RejectionReason:
+  type: object
+  description: Never contains submitted values.
+  properties:
+    field:
+      type: string
+      example: customer.phone-number
+    code:
+      type: string
+      enum: [MISSING, INVALID, CUSTOMER_UNDER_AGE, GOVERNMENT_ID_EXPIRED]
+    message:
+      type: string
+      example: phone-number must be an optional + followed by 8 to 15 digits
+
+ValidationResultData:
+  type: object
+  description: Payload returned inside the validation result response envelope.
+  properties:
+    application-reference:
+      type: string
+    status:
+      type: string
+      enum: [PENDING, PASSED, REJECTED]
+    submitted-at:
+      type: string
+      format: date-time
+    validated-at:
+      type: string
+      format: date-time
+      nullable: true
+    reasons:
+      type: array
+      description: Present only when `status` is `REJECTED`.
+      items:
+        $ref: "#/RejectionReason"
+
+ValidationResultResponse:
+  type: object
+  description: Success response envelope for a validation result.
+  properties:
+    data:
+      $ref: "#/ValidationResultData"

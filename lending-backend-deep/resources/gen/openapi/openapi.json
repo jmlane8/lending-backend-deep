@@ -1,0 +1,549 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Loan Submission API",
+    "description": "Submits loan applications for partner customers. Submission is asynchronous:\na `202` means the application was recorded, not that it is valid.\n\nAll endpoints except `/healthcheck` require the `api-key` header.\n\n# Rejection webhook\n\nWhen a submission fails customer data validation, the platform sends a `POST`\nto the partner's registered notification address. Only rejections are sent. If a\nwebhook never arrives, the validation result lookup returns the same reasons.\n\n| Header | Value |\n|---|---|\n| `Content-Type` | `application/json` |\n| `x-event-id` | Same value as `event-id` in the body |\n| `x-timestamp` | Unix time in seconds when this attempt was signed |\n| `x-signature` | `sha256=` followed by the lowercase hex HMAC-SHA256 of `<x-timestamp>.<raw body>`, using the partner's notification secret |\n\n```json\n{\n  \"event-id\": \"019a3b1d-22aa-7c31-8f10-5d9e3a7b1c02\",\n  \"event-type\": \"loan-application.rejected\",\n  \"application-reference\": \"LA-019a3b1c-7d2e-7f10-9c44-2b6e1f0a8d11\",\n  \"rejected-at\": \"2026-10-31T04:15:09Z\",\n  \"reasons\": [\n    {\n      \"field\": \"customer.phone-number\",\n      \"code\": \"INVALID\",\n      \"message\": \"phone-number must be an optional + followed by 8 to 15 digits\"\n    }\n  ]\n}\n```\n\nPartners should:\n\n- Verify the signature with a constant-time comparison before trusting the body.\n- Reject requests with an old `x-timestamp`. Five minutes is a sensible limit.\n- De-duplicate on `event-id`. Delivery is at-least-once.\n- Return any `2xx` within 5 seconds.\n\nAny other status, a timeout, or a connection failure counts as a failed attempt.\nRetries happen 1 minute, 5 minutes, 30 minutes, 2 hours, 6 hours and 12 hours after\nthe previous attempt, for 7 attempts in total.\n",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Default",
+      "description": "Default service endpoints (no authentication required)."
+    },
+    {
+      "name": "Loan Applications",
+      "description": "Loan application endpoints (api-key required)."
+    },
+    {
+      "name": "Master Data",
+      "description": "Accepted customer values (api-key required)."
+    }
+  ],
+  "paths": {
+    "/healthcheck": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "healthcheck",
+        "description": "Returns service health status. No authentication required.",
+        "tags": [
+          "Default"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthcheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/loan-applications/v1": {
+      "post": {
+        "summary": "Submit a loan application",
+        "operationId": "loanApplications.submit",
+        "description": "Records the application and acknowledges it within 2 seconds. Customer data\nis validated afterwards. Mandatory fields are described in the schema but not\nmarked `required`, because missing fields are reported after acknowledgment,\nthrough the rejection webhook and the validation result lookup.\n",
+        "tags": [
+          "Loan Applications"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Application recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not a JSON object (`INVALID_REQUEST_BODY`). No application was recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `api-key` header (`UNAUTHORIZED`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The partner agreement is not active (`PARTNER_AGREEMENT_INACTIVE`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is over 16 MiB (`REQUEST_BODY_TOO_LARGE`). No application was recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. No application was recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/loan-applications/v1/{application-reference}/validation-result": {
+      "get": {
+        "summary": "Get an application's validation result",
+        "operationId": "loanApplications.validationResult",
+        "description": "Returns the validation result only. Loan decisions are not reported here.\nAn application belonging to another partner returns `404`.\n",
+        "tags": [
+          "Loan Applications"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "application-reference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "LA-019a3b1c-7d2e-7f10-9c44-2b6e1f0a8d11"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current validation result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationResultResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `api-key` header (`UNAUTHORIZED`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The partner agreement is not active (`PARTNER_AGREEMENT_INACTIVE`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown reference, or one owned by another partner (`APPLICATION_NOT_FOUND`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/master-data/v1/enumerations": {
+      "get": {
+        "summary": "List accepted customer values",
+        "operationId": "masterData.enumerations",
+        "description": "Returns the values accepted for gender, marital status and occupation.",
+        "tags": [
+          "Master Data"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accepted values by category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnumerationsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `api-key` header (`UNAUTHORIZED`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The partner agreement is not active (`PARTNER_AGREEMENT_INACTIVE`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "api-key"
+      }
+    },
+    "schemas": {
+      "HealthcheckResponse": {
+        "type": "object",
+        "description": "Response returned by the health check endpoint.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Health status value.",
+            "example": "ok"
+          }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "description": "All fields are mandatory except `email`.",
+        "properties": {
+          "government-id-photo": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64 JPEG or PNG, at most 5 MiB decoded and 50 megapixels."
+          },
+          "government-id-expiry-date": {
+            "type": "string",
+            "format": "date",
+            "description": "Must not be before the submission date."
+          },
+          "national-id-number": {
+            "type": "string",
+            "description": "Letters and digits only, at most 255 characters.",
+            "example": "3201012345678901"
+          },
+          "full-legal-name": {
+            "type": "string"
+          },
+          "selfie-photo": {
+            "type": "string",
+            "format": "byte",
+            "description": "Base64 JPEG or PNG, at most 5 MiB decoded and 50 megapixels."
+          },
+          "phone-number": {
+            "type": "string",
+            "description": "Optional leading +, then 8 to 15 digits.",
+            "example": "+15551234567"
+          },
+          "email": {
+            "type": "string",
+            "description": "Optional. Never a rejection reason."
+          },
+          "gender": {
+            "type": "string",
+            "description": "A `gender` value from `/master-data/v1/enumerations`.",
+            "example": "FEMALE"
+          },
+          "date-of-birth": {
+            "type": "string",
+            "format": "date",
+            "description": "The customer must be at least 18 on the submission date."
+          },
+          "place-of-birth": {
+            "type": "string"
+          },
+          "marital-status": {
+            "type": "string",
+            "enum": [
+              "SINGLE",
+              "MARRIED",
+              "DIVORCED",
+              "WIDOWED"
+            ]
+          },
+          "occupation": {
+            "type": "string",
+            "enum": [
+              "EMPLOYEE",
+              "ENTREPRENEUR",
+              "CIVIL_SERVANT"
+            ]
+          },
+          "work-duration-years": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32767
+          },
+          "monthly-income": {
+            "type": "number",
+            "description": "Greater than 0, up to 18 whole digits and 2 decimals, without an exponent."
+          },
+          "number-of-dependents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32767
+          },
+          "domicile-street": {
+            "type": "string"
+          },
+          "domicile-district": {
+            "type": "string"
+          },
+          "domicile-city": {
+            "type": "string"
+          },
+          "domicile-province": {
+            "type": "string"
+          }
+        }
+      },
+      "SubmitRequest": {
+        "type": "object",
+        "description": "Request body for POST /loan-applications/v1. Nothing is marked `required`:\nmissing or invalid fields are reported after acknowledgment. Limit 16 MiB.\n",
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/Customer"
+          },
+          "collateral": {
+            "type": "object",
+            "description": "Defined by US-004. Stored, not validated by this feature."
+          },
+          "loan": {
+            "type": "object",
+            "description": "Defined by US-005. Stored, not validated by this feature."
+          }
+        }
+      },
+      "SubmitData": {
+        "type": "object",
+        "description": "Payload returned inside the submit response envelope.",
+        "properties": {
+          "application-reference": {
+            "type": "string",
+            "example": "LA-019a3b1c-7d2e-7f10-9c44-2b6e1f0a8d11"
+          },
+          "submitted-at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SubmitResponse": {
+        "type": "object",
+        "description": "Success response envelope for a recorded application.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SubmitData"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "description": "Standard response envelope returned by all endpoints on failure.",
+        "properties": {
+          "error-code": {
+            "type": "string",
+            "description": "Machine-readable error code.",
+            "example": "UNAUTHORIZED"
+          },
+          "error-message": {
+            "type": "string",
+            "description": "Human-readable description of the error.",
+            "example": "unauthorized: invalid or missing api-key"
+          }
+        }
+      },
+      "RejectionReason": {
+        "type": "object",
+        "description": "Never contains submitted values.",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "customer.phone-number"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "MISSING",
+              "INVALID",
+              "CUSTOMER_UNDER_AGE",
+              "GOVERNMENT_ID_EXPIRED"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "example": "phone-number must be an optional + followed by 8 to 15 digits"
+          }
+        }
+      },
+      "ValidationResultData": {
+        "type": "object",
+        "description": "Payload returned inside the validation result response envelope.",
+        "properties": {
+          "application-reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PASSED",
+              "REJECTED"
+            ]
+          },
+          "submitted-at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validated-at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "reasons": {
+            "type": "array",
+            "description": "Present only when `status` is `REJECTED`.",
+            "items": {
+              "$ref": "#/components/schemas/RejectionReason"
+            }
+          }
+        }
+      },
+      "ValidationResultResponse": {
+        "type": "object",
+        "description": "Success response envelope for a validation result.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ValidationResultData"
+          }
+        }
+      },
+      "EnumerationsData": {
+        "type": "object",
+        "description": "Payload returned inside the enumerations response envelope.",
+        "properties": {
+          "gender": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "FEMALE",
+              "MALE"
+            ]
+          },
+          "marital-status": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "occupation": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "EnumerationsResponse": {
+        "type": "object",
+        "description": "Success response envelope for the accepted customer values.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EnumerationsData"
+          }
+        }
+      }
+    }
+  }
+}

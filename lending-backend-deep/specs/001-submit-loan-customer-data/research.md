@@ -54,16 +54,18 @@ These don't affect the design, but the constitution should be corrected in a PAT
 
 | Technology | Version (source) | Context7 library ID | Topics checked |
 |---|---|---|---|
-| pgx | 5.10.0 (`go.mod`) | `/jackc/pgx/v5.10.0` | `Pool.Begin`, `pgx.ErrNoRows`, bytea and JSON type mapping |
-| PostgreSQL | 16 | `/websites/postgresql/16` | `SKIP LOCKED`, row locks, `VACUUM` |
+| pgx | 5.10.0 (`go.mod`) | `/jackc/pgx/v5.10.0` | `Pool.Begin`, `pgx.ErrNoRows`, bytea and JSON type mapping. Implementation: `CollectRows`, `RowTo`, `pgconn.PgError`, deferred `Rollback` after `Commit`, `CommandTag.RowsAffected` |
+| PostgreSQL | 16 | `/websites/postgresql/16` | `SKIP LOCKED`, row locks, `VACUUM`. Implementation: locking clause with `LIMIT`, `ORDER BY` and joins, `make_interval`, `power`, `sha256` |
 | chi | 5.3.1 (`go.mod`) | `/go-chi/docs` (unversioned) | URL parameters |
 | golang-migrate | 4.19.1 (`go.mod`) | `/golang-migrate/migrate/v4_18_3` (nearest available) | `iofs` source; template's `migrate.go` is the reference for the pgx5 driver |
 | zerolog | 1.35.1 (`go.mod`) | `/rs/zerolog` (unversioned) | Sub-loggers with context fields |
 | caarlos0/env | 11.4.1 (`go.mod`) | `/caarlos0/env` (unversioned) | `envDefault`, `required` behaviour |
 | google/uuid | 1.6.0 (`go.mod`) | `/google/uuid` (unversioned) | `NewV7` |
-| Go standard library | 1.26 (`go.mod`) | `/websites/pkg_go_dev_go1_25_3` (nearest full library) | `http.MaxBytesReader`, `image`, `time/tzdata`, `crypto/hmac` |
+| Go standard library | 1.26 (`go.mod`) | `/websites/pkg_go_dev_go1_25_3` (nearest full library) | `http.MaxBytesReader`, `image`, `time/tzdata`, `crypto/hmac`. Implementation: all re-checked against 1.25.3, plus `http.Client.CheckRedirect`, `sync.WaitGroup.Go`, `time.LoadLocation`, `encoding/base64`, `encoding/json`. `/websites/pkg_go_dev_std` (1.26.3) has no API detail: its `image` and `crypto/hmac` queries returned package listings, and its `net/http` query returned nothing |
 
 No web search fallback was used. Where Context7 has no exact version, re-check the specific API during tasks and implementation.
+
+Two items had no Context7 evidence and rest on the compiler or tests instead: `pgconn.PgError.ConstraintName` (the docs show the struct with "other fields") and `Exec` running several statements with no arguments, which only the test helper uses to load the seed.
 
 ## Decisions
 

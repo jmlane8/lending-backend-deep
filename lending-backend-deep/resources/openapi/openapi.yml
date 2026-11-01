@@ -1,0 +1,222 @@
+# SOURCE FILE FOR OPEN API DOCUMENTATION.
+# Run `make openapi` to bundle into resources/gen/openapi/openapi.json.
+openapi: "3.0.3"
+info:
+  title: Loan Submission API
+  description: |
+    Submits loan applications for partner customers. Submission is asynchronous:
+    a `202` means the application was recorded, not that it is valid.
+
+    All endpoints except `/healthcheck` require the `api-key` header.
+
+    # Rejection webhook
+
+    When a submission fails customer data validation, the platform sends a `POST`
+    to the partner's registered notification address. Only rejections are sent. If a
+    webhook never arrives, the validation result lookup returns the same reasons.
+
+    | Header | Value |
+    |---|---|
+    | `Content-Type` | `application/json` |
+    | `x-event-id` | Same value as `event-id` in the body |
+    | `x-timestamp` | Unix time in seconds when this attempt was signed |
+    | `x-signature` | `sha256=` followed by the lowercase hex HMAC-SHA256 of `<x-timestamp>.<raw body>`, using the partner's notification secret |
+
+    ```json
+    {
+      "event-id": "019a3b1d-22aa-7c31-8f10-5d9e3a7b1c02",
+      "event-type": "loan-application.rejected",
+      "application-reference": "LA-019a3b1c-7d2e-7f10-9c44-2b6e1f0a8d11",
+      "rejected-at": "2026-10-31T04:15:09Z",
+      "reasons": [
+        {
+          "field": "customer.phone-number",
+          "code": "INVALID",
+          "message": "phone-number must be an optional + followed by 8 to 15 digits"
+        }
+      ]
+    }
+    ```
+
+    Partners should:
+
+    - Verify the signature with a constant-time comparison before trusting the body.
+    - Reject requests with an old `x-timestamp`. Five minutes is a sensible limit.
+    - De-duplicate on `event-id`. Delivery is at-least-once.
+    - Return any `2xx` within 5 seconds.
+
+    Any other status, a timeout, or a connection failure counts as a failed attempt.
+    Retries happen 1 minute, 5 minutes, 30 minutes, 2 hours, 6 hours and 12 hours after
+    the previous attempt, for 7 attempts in total.
+  version: "1.0"
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+paths:
+  /healthcheck:
+    get:
+      summary: Health check
+      operationId: healthcheck
+      description: Returns service health status. No authentication required.
+      tags:
+        - Default
+      security: []
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/healthcheck/healthcheck.yaml#/HealthcheckResponse"
+  /loan-applications/v1:
+    post:
+      summary: Submit a loan application
+      operationId: loanApplications.submit
+      description: |
+        Records the application and acknowledges it within 2 seconds. Customer data
+        is validated afterwards. Mandatory fields are described in the schema but not
+        marked `required`, because missing fields are reported after acknowledgment,
+        through the rejection webhook and the validation result lookup.
+      tags:
+        - Loan Applications
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./schema/loanapplication/submit.yaml#/SubmitRequest"
+      responses:
+        "202":
+          description: Application recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/loanapplication/submit.yaml#/SubmitResponse"
+        "400":
+          description: The body is not a JSON object (`INVALID_REQUEST_BODY`). No application was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+        "401":
+          description: Missing or invalid `api-key` header (`UNAUTHORIZED`).
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+        "403":
+          description: The partner agreement is not active (`PARTNER_AGREEMENT_INACTIVE`).
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+        "413":
+          description: The body is over 16 MiB (`REQUEST_BODY_TOO_LARGE`). No application was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+        "500":
+          description: Internal server error. No application was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+  /loan-applications/v1/{application-reference}/validation-result:
+    get:
+      summary: Get an application's validation result
+      operationId: loanApplications.validationResult
+      description: |
+        Returns the validation result only. Loan decisions are not reported here.
+        An application belonging to another partner returns `404`.
+      tags:
+        - Loan Applications
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: application-reference
+          in: path
+          required: true
+          schema:
+            type: string
+          example: LA-019a3b1c-7d2e-7f10-9c44-2b6e1f0a8d11
+      responses:
+        "200":
+          description: Current validation result.
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/loanapplication/validationresult.yaml#/ValidationResultResponse"
+        "401":
+          description: Missing or invalid `api-key` header (`UNAUTHORIZED`).
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+        "403":
+          description: The partner agreement is not active (`PARTNER_AGREEMENT_INACTIVE`).
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+        "404":
+          description: Unknown reference, or one owned by another partner (`APPLICATION_NOT_FOUND`).
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+  /master-data/v1/enumerations:
+    get:
+      summary: List accepted customer values
+      operationId: masterData.enumerations
+      description: Returns the values accepted for gender, marital status and occupation.
+      tags:
+        - Master Data
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Accepted values by category.
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/masterdata/enumerations.yaml#/EnumerationsResponse"
+        "401":
+          description: Missing or invalid `api-key` header (`UNAUTHORIZED`).
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+        "403":
+          description: The partner agreement is not active (`PARTNER_AGREEMENT_INACTIVE`).
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "./schema/common/error.yaml#/ErrorResponse"
+tags:
+  - name: Default
+    description: Default service endpoints (no authentication required).
+  - name: Loan Applications
+    description: Loan application endpoints (api-key required).
+  - name: Master Data
+    description: Accepted customer values (api-key required).
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: api-key

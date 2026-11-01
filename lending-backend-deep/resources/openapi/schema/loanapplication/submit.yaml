@@ -1,0 +1,97 @@
+SubmitRequest:
+  type: object
+  description: |
+    Request body for POST /loan-applications/v1. Nothing is marked `required`:
+    missing or invalid fields are reported after acknowledgment. Limit 16 MiB.
+  properties:
+    customer:
+      $ref: "#/Customer"
+    collateral:
+      type: object
+      description: Defined by US-004. Stored, not validated by this feature.
+    loan:
+      type: object
+      description: Defined by US-005. Stored, not validated by this feature.
+
+Customer:
+  type: object
+  description: All fields are mandatory except `email`.
+  properties:
+    government-id-photo:
+      type: string
+      format: byte
+      description: Base64 JPEG or PNG, at most 5 MiB decoded and 50 megapixels.
+    government-id-expiry-date:
+      type: string
+      format: date
+      description: Must not be before the submission date.
+    national-id-number:
+      type: string
+      description: Letters and digits only, at most 255 characters.
+      example: "3201012345678901"
+    full-legal-name:
+      type: string
+    selfie-photo:
+      type: string
+      format: byte
+      description: Base64 JPEG or PNG, at most 5 MiB decoded and 50 megapixels.
+    phone-number:
+      type: string
+      description: Optional leading +, then 8 to 15 digits.
+      example: "+15551234567"
+    email:
+      type: string
+      description: Optional. Never a rejection reason.
+    gender:
+      type: string
+      description: A `gender` value from `/master-data/v1/enumerations`.
+      example: FEMALE
+    date-of-birth:
+      type: string
+      format: date
+      description: The customer must be at least 18 on the submission date.
+    place-of-birth:
+      type: string
+    marital-status:
+      type: string
+      enum: [SINGLE, MARRIED, DIVORCED, WIDOWED]
+    occupation:
+      type: string
+      enum: [EMPLOYEE, ENTREPRENEUR, CIVIL_SERVANT]
+    work-duration-years:
+      type: integer
+      minimum: 0
+      maximum: 32767
+    monthly-income:
+      type: number
+      description: Greater than 0, up to 18 whole digits and 2 decimals, without an exponent.
+    number-of-dependents:
+      type: integer
+      minimum: 0
+      maximum: 32767
+    domicile-street:
+      type: string
+    domicile-district:
+      type: string
+    domicile-city:
+      type: string
+    domicile-province:
+      type: string
+
+SubmitData:
+  type: object
+  description: Payload returned inside the submit response envelope.
+  properties:
+    application-reference:
+      type: string
+      example: LA-019a3b1c-7d2e-7f10-9c44-2b6e1f0a8d11
+    submitted-at:
+      type: string
+      format: date-time
+
+SubmitResponse:
+  type: object
+  description: Success response envelope for a recorded application.
+  properties:
+    data:
+      $ref: "#/SubmitData"

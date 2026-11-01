@@ -132,7 +132,7 @@ components:
           format: date
         national-id-number:
           type: string
-          description: Letters and digits only.
+          description: Letters and digits only, at most 255 characters.
           example: "3201012345678901"
         full-legal-name:
           type: string

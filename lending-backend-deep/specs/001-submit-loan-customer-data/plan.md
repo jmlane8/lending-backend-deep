@@ -118,7 +118,7 @@ tests/integration/                 # (new) needs TEST_DATABASE_URL
 |-----------|------------|--------------------------------------|
 | Minimal `partner` and `partner_credential` tables built ahead of US-001 | FR-011, FR-013 and FR-014 need the submitting partner; Principle IV forbids the template's single static key | A static key cannot attribute a request to a partner |
 | New `internal/worker` and `internal/validation` packages | Principle III moves validation out of handlers | Validating in a handler is prohibited; putting rules in `store/pg` would mix them with I/O |
-| Template `deleted` soft-delete columns not used on submission data | FR-011 needs real deletion of personal data | A flag would keep the personal data |
+| Rejected `application_payload` rows are hard-deleted, despite the template's soft-delete columns | FR-011 needs real deletion of personal data | A flag would keep the personal data |
 | Handler returns `202`, not the template's `200` | The submission is accepted but not yet validated | `200` would imply the work is finished |
 | Migration `seed/` folder outside golang-migrate | Sandbox partner data must not run in production | A migration runs in every environment |
 | Database trigger for the `issued_at` rule | PostgreSQL `CHECK` constraints can't read another table | Enforcing it only in code would leave direct inserts unchecked |
